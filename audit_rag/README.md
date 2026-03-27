@@ -2,14 +2,14 @@
 
 Un système RAG (Retrieval-Augmented Generation) avancé pour l'analyse intelligente et multimodale de rapports d'audit.
 
-## 🎯 Objectifs
+##  Objectifs
 
 - Extraire et indexer automatiquement les données des rapports d'audit (PDF, images, tableaux)
 - Récupérer les informations pertinentes selon les requêtes utilisateur
 - Générer des analyses synthétiques et contextualisées
 - Évaluer la qualité et la pertinence des réponses générées
 
-## 🚀 Démarrage rapide
+##  Démarrage rapide
 
 ### Prérequis
 
@@ -52,7 +52,7 @@ poetry run python quickstart.py
 poetry run uvicorn src.audit_rag.api:app --reload
 ```
 
-## 📦 Structure du projet
+##  Structure du projet
 
 ```
 audit_rag/
@@ -100,7 +100,7 @@ CHROMADB_HOST=localhost
 CHROMADB_PORT=8000
 ```
 
-## 🧪 Tests
+##  Tests
 
 ```bash
 poetry run pytest
