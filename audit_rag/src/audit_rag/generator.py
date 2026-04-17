@@ -39,11 +39,14 @@ class AuditRAGGenerator:
     ):
         self.retriever = retriever
         self.cfg       = settings or get_settings()
+
         self.llm = ChatOpenAI(
             model=self.cfg.llm_model,
             temperature=0.1,
             max_tokens=2000,
+            api_key=self.cfg.openai_api_key,
         )
+
         self.prompt = ChatPromptTemplate.from_template(SYSTEM_PROMPT)
  
     def answer(
@@ -54,12 +57,27 @@ class AuditRAGGenerator:
     ) -> dict[str, Any]:
         docs    = self.retriever.retrieve(question, k=k, use_mmr=use_mmr)
         context = self._format_context(docs)
-        chain   = self.prompt | self.llm
-        resp    = chain.invoke({"context": context, "question": question})
- 
+
+        if not docs:
+            return {
+                "question":    question,
+                "answer":      "Aucun document trouvé pour répondre.",
+                "source_docs": [],
+                "metadata": {
+                    "num_docs": 0,
+                    "types": [],
+                    "sources": [],
+                    "pages": [],
+                },
+            }
+
+        chain = self.prompt | self.llm
+        resp  = chain.invoke({"context": context, "question": question})
+        answer_text = resp.content
+
         return {
             "question":    question,
-            "answer":      resp.content,
+            "answer":      answer_text,
             "source_docs": docs,
             "metadata": {
                 "num_docs":  len(docs),

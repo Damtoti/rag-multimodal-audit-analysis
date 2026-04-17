@@ -8,7 +8,6 @@ from typing import Any, Optional
 import fitz
 import numpy as np
 import pdfplumber
-import camelot
 import torch
 from PIL import Image
 from langchain_openai import ChatOpenAI
@@ -86,29 +85,38 @@ class PDFExtractor:
     # ── Extraction tableaux ─────────────────────────────────
     def extract_tables(self, pdf_path: Path) -> list[ExtractedElement]:
         elements: list[ExtractedElement] = []
-        for flavor in ("lattice", "stream"):
-            try:
-                tables = camelot.read_pdf(str(pdf_path), flavor=flavor, pages="all")
-                for table in tables:
-                    df = table.df
-                    if df.shape[0] < 2 or df.shape[1] < 2:
+        with pdfplumber.open(str(pdf_path)) as pdf:
+            for page_num, page in enumerate(pdf.pages, start=1):
+                try:
+                    tables = page.extract_tables()
+                    if not tables:
                         continue
-                    md_table    = df.to_markdown(index=False)
-                    description = self._describe_table(md_table)
-                    elements.append(ExtractedElement(
-                        element_type="table",
-                        content=f"{description}\\n\\n{md_table}",
-                        page_number=table.page,
-                        source_file=pdf_path.name,
-                        metadata={
-                            "rows":     df.shape[0],
-                            "cols":     df.shape[1],
-                            "accuracy": table.accuracy,
-                            "flavor":   flavor,
-                        },
-                    ))
-            except Exception as exc:
-                logger.warning("Camelot %s sur %s : %s", flavor, pdf_path.name, exc)
+                    
+                    for table_idx, table in enumerate(tables):
+                        if len(table) < 2 or len(table[0]) < 2:
+                            continue
+                        
+                        # Convertir en dataframe et markdown
+                        import pandas as pd
+                        df = pd.DataFrame(table[1:], columns=table[0])
+                        md_table = df.to_markdown(index=False)
+                        description = self._describe_table(md_table)
+                        
+                        elements.append(ExtractedElement(
+                            element_type="table",
+                            content=f"{description}\n\n{md_table}",
+                            page_number=page_num,
+                            source_file=pdf_path.name,
+                            metadata={
+                                "rows": df.shape[0],
+                                "cols": df.shape[1],
+                                "table_index": table_idx,
+                            },
+                        ))
+                except Exception as exc:
+                    logger.warning("Extraction table p.%d de %s : %s", page_num, pdf_path.name, exc)
+        
+        logger.debug("%d tableaux extraits de %s", len(elements), pdf_path.name)
         return elements
  
     # ── Extraction images ───────────────────────────────────
@@ -173,28 +181,36 @@ class PDFExtractor:
         return embedding.cpu().numpy().flatten()
  
     def _describe_image(self, pil_img: Image.Image) -> str:
-        import base64
-        buf    = io.BytesIO()
-        pil_img.save(buf, format="JPEG", quality=85)
-        b64img = base64.b64encode(buf.getvalue()).decode()
-        response = self.llm.invoke([{
-            "role": "user",
-            "content": [
-                {"type": "image_url",
-                 "image_url": {"url": f"data:image/jpeg;base64,{b64img}", "detail": "high"}},
-                {"type": "text", "text": (
-                    "Décris cette image d'un rapport d'audit financier. "
-                    "Inclus : type de graphique, métriques clés, tendances, anomalies. "
-                    "Max 150 mots, en français."
-                )},
-            ],
-        }])
-        return response.content
+        try:
+            import base64
+            buf    = io.BytesIO()
+            pil_img.save(buf, format="JPEG", quality=85)
+            b64img = base64.b64encode(buf.getvalue()).decode()
+            response = self.llm.invoke([{
+                "role": "user",
+                "content": [
+                    {"type": "image_url",
+                     "image_url": {"url": f"data:image/jpeg;base64,{b64img}", "detail": "high"}},
+                    {"type": "text", "text": (
+                        "Décris cette image d'un rapport d'audit financier. "
+                        "Inclus : type de graphique, métriques clés, tendances, anomalies. "
+                        "Max 150 mots, en français."
+                    )},
+                ],
+            }])
+            return response.content
+        except Exception as exc:
+            logger.warning("Description image impossible : %s", exc)
+            return "Image extraite d'un rapport d'audit (description non disponible)"
  
     def _describe_table(self, md_table: str) -> str:
-        prompt = ChatPromptTemplate.from_template(
-            "Tableau financier :\\n{table}\\n\\n"
-            "Description courte (max 80 mots) : type de données, "
-            "indicateurs clés, tendances. Commence par \'Ce tableau présente\'."
-        )
-        return (prompt | self.llm).invoke({"table": md_table[:2000]}).content
+        try:
+            prompt = ChatPromptTemplate.from_template(
+                "Tableau financier :\\n{table}\\n\\n"
+                "Description courte (max 80 mots) : type de données, "
+                "indicateurs clés, tendances. Commence par \'Ce tableau présente\'."
+            )
+            return (prompt | self.llm).invoke({"table": md_table[:2000]}).content
+        except Exception as exc:
+            logger.warning("Description tableau impossible : %s", exc)
+            return "Tableau financier extrait (description non disponible)"

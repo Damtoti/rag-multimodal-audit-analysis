@@ -4,8 +4,8 @@ from typing import Optional
  
 from langchain.schema import Document
 from langchain.text_splitter import RecursiveCharacterTextSplitter
-from langchain_community.vectorstores import Chroma
-from langchain_openai import OpenAIEmbeddings
+from langchain_chroma import Chroma
+from langchain_huggingface import HuggingFaceEmbeddings
  
 from audit_rag.config import Settings, get_settings
 from audit_rag.extractor import ExtractedElement
@@ -20,7 +20,7 @@ class AuditVectorStore:
  
     def __init__(self, settings: Optional[Settings] = None):
         self.cfg = settings or get_settings()
-        self.embeddings = OpenAIEmbeddings(model=self.cfg.embed_model)
+        self.embeddings = HuggingFaceEmbeddings(model_name="all-MiniLM-L6-v2")
         self.splitter   = RecursiveCharacterTextSplitter(
             chunk_size=self.cfg.chunk_size,
             chunk_overlap=self.cfg.chunk_overlap,
@@ -44,7 +44,7 @@ class AuditVectorStore:
     def load(self) -> None:
         self._store = Chroma(
             persist_directory=str(self.cfg.persist_dir),
-            embedding_function=self.embeddings,
+            embedding_function=HuggingFaceEmbeddings(model_name="all-MiniLM-L6-v2"),
             collection_name=COLLECTION_NAME,
         )
         count = self._store._collection.count()

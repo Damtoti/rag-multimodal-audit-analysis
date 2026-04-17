@@ -31,11 +31,13 @@ def mock_retriever(mock_docs: list[Document]) -> AuditRetriever:
  
 @pytest.fixture
 def mock_generator(mock_retriever: AuditRetriever) -> AuditRAGGenerator:
-    gen = AuditRAGGenerator(mock_retriever)
-    with patch.object(gen.llm, "invoke") as mock_llm:
-        mock_llm.return_value = MagicMock(
+    with patch("audit_rag.generator.ChatOpenAI") as mock_llm_class:
+        mock_llm = MagicMock()
+        mock_llm.invoke.return_value = MagicMock(
             content="Le chiffre d\'affaires a progressé de 12% (p.5)."
         )
+        mock_llm_class.return_value = mock_llm
+        gen = AuditRAGGenerator(mock_retriever)
         yield gen
  
  

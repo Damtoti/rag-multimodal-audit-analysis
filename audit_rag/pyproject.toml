@@ -3,18 +3,19 @@ name = "audit-rag"
 version = "0.1.0"
 description = "RAG multi-modal pour l'analyse de rapports d'audit"
 authors = ["Votre Nom <vous@example.com>"]
-python = "^3.10"
  
 [tool.poetry.dependencies]
 python          = "^3.10"
 langchain       = "^0.2"
 langchain-openai= "^0.1"
 langchain-community = "^0.2"
+langchain-chroma = "^0.1"
+langchain-huggingface = "^0.0"
 chromadb        = "^0.5"
 openai          = "^1.30"
 pdfplumber      = "^0.11"
 PyMuPDF         = "^1.24"
-camelot-py      = {extras = ["cv"], version = "^0.11"}
+pdf2image       = "^1.17"
 pillow          = "^10.0"
 transformers    = "^4.40"
 sentence-transformers = "^3.0"

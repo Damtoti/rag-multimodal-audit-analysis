@@ -10,7 +10,7 @@ class Settings(BaseSettings):
     )
 
     # API Keys
-    openai_api_key: str
+    openai_api_key: str = ""
     cohere_api_key: str = ""
     pinecone_api_key: str = ""
     pinecone_environment: str = ""

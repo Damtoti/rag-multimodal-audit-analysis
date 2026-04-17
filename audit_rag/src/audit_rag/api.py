@@ -63,7 +63,8 @@ class QueryRequest(BaseModel):
 class QueryResponse(BaseModel):
     question: str
     answer: str
-    metadata: dict[str, Any]
+    source_docs: list
+    metadata: dict
  
  
 class IngestResponse(BaseModel):

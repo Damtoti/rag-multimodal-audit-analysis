@@ -25,7 +25,7 @@ def main() -> None:
         console.print(f"[yellow]⚠ Aucun PDF trouvé dans {args.dir}[/yellow]")
         return
  
-    console.print(f"[bold blue]📂 {len(pdf_files)} rapport(s) à traiter[/bold blue]")
+    console.print(f"[bold blue]Fichiers PDF: {len(pdf_files)} rapport(s) à traiter[/bold blue]")
  
     extractor = PDFExtractor()
     store     = AuditVectorStore()
@@ -40,13 +40,13 @@ def main() -> None:
  
     counts = {t: sum(1 for e in all_elems if e.element_type == t)
               for t in ("text", "table", "image")}
-    console.print(f"[green]✅ Extrait : {counts}[/green]")
+    console.print(f"[green]Extrait : {counts}[/green]")
  
     with Progress(SpinnerColumn(), TextColumn("{task.description}"), console=console) as p:
         p.add_task("Indexation ChromaDB...", total=None)
         store.build(all_elems)
  
-    console.print("[bold green]✅ Indexation terminée ![/bold green]")
+    console.print("[bold green]Indexation terminee ![/bold green]")
  
  
 if __name__ == "__main__":
