@@ -1,12 +1,12 @@
 """Retrieval avec MMR et reranking optionnel (Cohere)."""
 import logging
+import os
 from typing import Optional
- 
-from langchain.schema import Document
- 
-from audit_rag.config import Settings, get_settings
+
+from langchain_core.documents import Document
+
 from audit_rag.vectorstore import AuditVectorStore
- 
+from audit_rag.config import Settings, get_settings
 logger = logging.getLogger(__name__)
  
  
@@ -21,10 +21,11 @@ class AuditRetriever:
         self.store = store
         self.cfg   = settings or get_settings()
         self._cohere = None
-        if self.cfg.cohere_api_key:
+        cohere_key = os.getenv("COHERE_API_KEY")
+        if cohere_key:
             try:
                 import cohere
-                self._cohere = cohere.Client(self.cfg.cohere_api_key)
+                self._cohere = cohere.Client(cohere_key)
                 logger.info("Cohere reranking activé")
             except ImportError:
                 logger.warning("cohere non installé — pip install cohere")

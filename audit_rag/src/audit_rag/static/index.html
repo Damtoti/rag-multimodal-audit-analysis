@@ -1,0 +1,593 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Audit RAG - Interface</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;500&display=swap" rel="stylesheet">
+  <style>
+    :root {
+      --bg-1: #fef7ed;
+      --bg-2: #ffedd5;
+      --bg-3: #dcfce7;
+      --ink: #1b1b23;
+      --muted: #4b5563;
+      --card: rgba(255, 255, 255, 0.78);
+      --card-border: rgba(255, 255, 255, 0.75);
+      --shadow: 0 18px 50px rgba(90, 64, 27, 0.14);
+      --accent: #0f766e;
+      --accent-2: #ea580c;
+      --danger: #b91c1c;
+    }
+
+    * { box-sizing: border-box; }
+
+    body {
+      margin: 0;
+      font-family: "Space Grotesk", "Segoe UI", sans-serif;
+      color: var(--ink);
+      background:
+        radial-gradient(90rem 35rem at -10% -15%, rgba(249, 115, 22, 0.2), transparent 65%),
+        radial-gradient(70rem 30rem at 120% 10%, rgba(15, 118, 110, 0.18), transparent 65%),
+        linear-gradient(160deg, var(--bg-1), var(--bg-2) 45%, var(--bg-3));
+      min-height: 100vh;
+    }
+
+    .surface {
+      position: fixed;
+      inset: 0;
+      pointer-events: none;
+      background-image:
+        linear-gradient(rgba(255, 255, 255, 0.45) 1px, transparent 1px),
+        linear-gradient(90deg, rgba(255, 255, 255, 0.4) 1px, transparent 1px);
+      background-size: 36px 36px;
+      opacity: 0.25;
+      z-index: 0;
+    }
+
+    header {
+      position: relative;
+      z-index: 1;
+      padding: 42px 24px 22px;
+      max-width: 1180px;
+      margin: 0 auto;
+      animation: fade-in-up 600ms ease both;
+    }
+
+    .header-shell {
+      display: grid;
+      gap: 20px;
+      grid-template-columns: 1.6fr 1fr;
+      align-items: stretch;
+    }
+
+    .hero-copy {
+      background: rgba(255, 255, 255, 0.54);
+      border: 1px solid rgba(255, 255, 255, 0.8);
+      border-radius: 22px;
+      padding: 22px;
+      box-shadow: 0 16px 34px rgba(15, 23, 42, 0.08);
+    }
+
+    .hero-title {
+      margin: 0;
+      font-size: clamp(2rem, 4vw, 3rem);
+      letter-spacing: -0.04em;
+      line-height: 1.04;
+      background: linear-gradient(120deg, #115e59 0%, #0f766e 35%, #c2410c 100%);
+      -webkit-background-clip: text;
+      background-clip: text;
+      color: transparent;
+    }
+
+    .kicker {
+      display: inline-block;
+      margin-bottom: 10px;
+      padding: 6px 12px;
+      border-radius: 999px;
+      font-family: "IBM Plex Mono", Consolas, monospace;
+      font-size: 0.78rem;
+      color: #134e4a;
+      background: rgba(255, 255, 255, 0.72);
+      border: 1px solid rgba(255, 255, 255, 0.9);
+    }
+
+    .hero-lead {
+      margin: 10px 0 0;
+      max-width: 70ch;
+      color: #374151;
+      line-height: 1.65;
+      font-size: 1.02rem;
+    }
+
+    .hero-metrics {
+      margin-top: 18px;
+      display: flex;
+      flex-wrap: wrap;
+      gap: 10px;
+    }
+
+    .metric-pill {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      border-radius: 999px;
+      border: 1px solid rgba(148, 163, 184, 0.35);
+      background: rgba(255, 255, 255, 0.74);
+      padding: 7px 12px;
+      font-family: "IBM Plex Mono", Consolas, monospace;
+      font-size: 0.8rem;
+      color: #1f2937;
+    }
+
+    .metric-label {
+      color: #64748b;
+      text-transform: uppercase;
+      font-size: 0.72rem;
+      letter-spacing: 0.06em;
+    }
+
+    .status-dot {
+      width: 8px;
+      height: 8px;
+      border-radius: 999px;
+      background: #f59e0b;
+      box-shadow: 0 0 0 0 rgba(245, 158, 11, 0.6);
+      animation: pulse 1.7s infinite;
+    }
+
+    .status-dot.online {
+      background: #16a34a;
+      box-shadow: 0 0 0 0 rgba(22, 163, 74, 0.55);
+    }
+
+    .status-dot.offline {
+      background: #dc2626;
+      box-shadow: none;
+      animation: none;
+    }
+
+    .hero-panel {
+      background: rgba(27, 27, 35, 0.9);
+      border: 1px solid rgba(255, 255, 255, 0.2);
+      border-radius: 22px;
+      padding: 20px;
+      color: #e5e7eb;
+      box-shadow: 0 16px 34px rgba(15, 23, 42, 0.18);
+    }
+
+    .hero-panel h2 {
+      margin: 0 0 12px;
+      font-size: 1.05rem;
+      letter-spacing: 0.01em;
+      color: #f8fafc;
+    }
+
+    .hero-panel ul {
+      margin: 0;
+      padding-left: 18px;
+      display: grid;
+      gap: 8px;
+      font-size: 0.93rem;
+      line-height: 1.55;
+      color: #cbd5e1;
+    }
+
+    main {
+      position: relative;
+      z-index: 1;
+      max-width: 1180px;
+      margin: 0 auto;
+      padding: 18px 24px 48px;
+    }
+
+    .grid {
+      display: grid;
+      gap: 24px;
+      grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
+    }
+
+    .card {
+      background: var(--card);
+      border: 1px solid var(--card-border);
+      border-radius: 22px;
+      box-shadow: var(--shadow);
+      backdrop-filter: blur(6px);
+      padding: 24px;
+      animation: fade-in-up 700ms ease both;
+    }
+
+    .card:nth-of-type(2) { animation-delay: 70ms; }
+
+    .card h2 {
+      margin: 0 0 18px;
+      font-size: clamp(1.2rem, 2.2vw, 1.55rem);
+      letter-spacing: -0.02em;
+    }
+
+    form {
+      display: grid;
+      gap: 12px;
+    }
+
+    label {
+      display: block;
+      font-weight: 600;
+      font-size: 0.95rem;
+      color: #1f2937;
+      margin-top: 3px;
+    }
+
+    textarea,
+    input[type=text],
+    input[type=number],
+    input[type=file] {
+      width: 100%;
+      border-radius: 14px;
+      border: 1px solid #d6d3d1;
+      padding: 12px 13px;
+      font-size: 1rem;
+      font-family: "Space Grotesk", "Segoe UI", sans-serif;
+      background: rgba(255, 255, 255, 0.82);
+      transition: border-color .2s ease, box-shadow .2s ease;
+    }
+
+    textarea:focus,
+    input[type=text]:focus,
+    input[type=number]:focus,
+    input[type=file]:focus {
+      outline: none;
+      border-color: rgba(15, 118, 110, 0.7);
+      box-shadow: 0 0 0 4px rgba(15, 118, 110, 0.14);
+    }
+
+    button {
+      border: none;
+      border-radius: 14px;
+      padding: 12px 18px;
+      font-size: 0.96rem;
+      font-weight: 700;
+      letter-spacing: 0.01em;
+      cursor: pointer;
+      color: #ffffff;
+      background: linear-gradient(135deg, var(--accent), #0d9488 58%, #14b8a6);
+      box-shadow: 0 10px 22px rgba(13, 148, 136, 0.28);
+      transition: transform .18s ease, filter .18s ease;
+    }
+
+    button:hover {
+      transform: translateY(-1px);
+      filter: saturate(1.1);
+    }
+
+    button:active {
+      transform: translateY(0);
+    }
+
+    .hint {
+      font-size: 0.93rem;
+      color: var(--muted);
+      margin-top: 6px;
+    }
+
+    .switch {
+      display: inline-flex;
+      align-items: center;
+      gap: 10px;
+      margin: 2px 0 2px;
+    }
+
+    .switch label {
+      display: inline-flex;
+      align-items: center;
+      gap: 9px;
+      margin: 0;
+      font-weight: 500;
+    }
+
+    .result {
+      margin-top: 5px;
+      line-height: 1.72;
+    }
+
+    .result pre {
+      background: rgba(255, 255, 255, 0.75);
+      border: 1px solid #e7e5e4;
+      padding: 14px;
+      border-radius: 12px;
+      overflow-x: auto;
+      white-space: pre-wrap;
+      font-family: "IBM Plex Mono", Consolas, monospace;
+      font-size: 0.89rem;
+      line-height: 1.6;
+    }
+
+    .tag {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      background: rgba(234, 88, 12, 0.1);
+      color: #9a3412;
+      border: 1px solid rgba(234, 88, 12, 0.2);
+      padding: 6px 11px;
+      border-radius: 999px;
+      font-size: 0.82rem;
+      margin-right: 8px;
+      font-family: "IBM Plex Mono", Consolas, monospace;
+    }
+
+    .source {
+      border-top: 1px dashed #cbd5e1;
+      padding-top: 15px;
+      margin-top: 15px;
+    }
+
+    .source-item {
+      margin: 14px 0;
+      padding: 12px;
+      border: 1px solid rgba(148, 163, 184, 0.25);
+      border-radius: 12px;
+      background: rgba(255, 255, 255, 0.5);
+    }
+
+    .ok { color: #166534; }
+    .error { color: var(--danger); font-weight: 600; }
+
+    @keyframes fade-in-up {
+      from {
+        opacity: 0;
+        transform: translateY(12px);
+      }
+      to {
+        opacity: 1;
+        transform: translateY(0);
+      }
+    }
+
+    @keyframes pulse {
+      0% { box-shadow: 0 0 0 0 rgba(245, 158, 11, 0.45); }
+      70% { box-shadow: 0 0 0 9px rgba(245, 158, 11, 0); }
+      100% { box-shadow: 0 0 0 0 rgba(245, 158, 11, 0); }
+    }
+
+    @media (max-width: 720px) {
+      header {
+        padding: 34px 18px 16px;
+      }
+
+      .header-shell {
+        grid-template-columns: 1fr;
+      }
+
+      .hero-copy,
+      .hero-panel {
+        border-radius: 18px;
+        padding: 16px;
+      }
+
+      .hero-title {
+        font-size: clamp(1.7rem, 8vw, 2.3rem);
+      }
+
+      main {
+        padding: 16px 18px 30px;
+      }
+
+      .grid {
+        grid-template-columns: 1fr;
+        gap: 16px;
+      }
+
+      .card {
+        padding: 18px;
+        border-radius: 18px;
+      }
+
+      button {
+        width: 100%;
+      }
+    }
+  </style>
+</head>
+<body>
+  <div class="surface" aria-hidden="true"></div>
+  <header>
+    <div class="header-shell">
+      <div class="hero-copy">
+        <span class="kicker">RAG MULTI-MODAL · AUDIT</span>
+        <h1 class="hero-title">Audit RAG</h1>
+        <p class="hero-lead">Interface web pour interroger votre base documentaire, visualiser l’état d’indexation et ingérer rapidement des rapports PDF pour l’analyse.</p>
+        <div class="hero-metrics" aria-live="polite">
+          <div class="metric-pill"><span class="status-dot" id="hero-api-dot"></span><span id="hero-api-status">API en vérification</span></div>
+          <div class="metric-pill"><span class="metric-label">Index</span><strong id="hero-index-size">--</strong></div>
+          <div class="metric-pill"><span class="metric-label">Mode</span><strong>Multi-modal</strong></div>
+        </div>
+      </div>
+      <aside class="hero-panel" aria-label="Aperçu d'utilisation">
+        <h2>Démarrage rapide</h2>
+        <ul>
+          <li>Importez un PDF pour enrichir la base.</li>
+          <li>Posez une question précise avec ou sans MMR.</li>
+          <li>Vérifiez les sources et métadonnées retournées.</li>
+        </ul>
+      </aside>
+    </div>
+  </header>
+  <main>
+    <div class="grid">
+      <section class="card">
+        <h2>Poser une question</h2>
+        <form id="query-form">
+          <label for="question">Question</label>
+          <textarea id="question" rows="5" placeholder="Exemple : Quels sont les principaux risques financiers identifiés ?"></textarea>
+          <div class="switch">
+            <label><input type="checkbox" id="use-mmr" checked /> Utiliser MMR</label>
+          </div>
+          <label for="k">Nombre de documents (k)</label>
+          <input type="number" id="k" value="6" min="1" max="20" />
+          <button type="submit">Envoyer la requête</button>
+        </form>
+        <div id="query-status" class="hint"></div>
+      </section>
+      <section class="card">
+        <h2>Ingestion de PDF</h2>
+        <form id="ingest-form">
+          <label for="pdf-file">Fichier PDF</label>
+          <input type="file" id="pdf-file" accept="application/pdf" />
+          <button type="submit">Envoyer le document</button>
+        </form>
+        <div id="ingest-status" class="hint"></div>
+      </section>
+    </div>
+
+    <section class="card" style="margin-top: 24px;">
+      <h2>Résultat de la requête</h2>
+      <div id="query-result" class="result">
+        <p>Posez une question pour afficher la réponse ici.</p>
+      </div>
+    </section>
+
+    <section class="card" style="margin-top: 24px;">
+      <h2>État de l’API</h2>
+      <div id="health-status" class="result"><p>Chargement...</p></div>
+    </section>
+  </main>
+  <script>
+    const queryForm = document.getElementById('query-form');
+    const ingestForm = document.getElementById('ingest-form');
+    const queryStatus = document.getElementById('query-status');
+    const ingestStatus = document.getElementById('ingest-status');
+    const queryResult = document.getElementById('query-result');
+    const healthStatus = document.getElementById('health-status');
+    const heroApiDot = document.getElementById('hero-api-dot');
+    const heroApiStatus = document.getElementById('hero-api-status');
+    const heroIndexSize = document.getElementById('hero-index-size');
+
+    async function readJsonBody(response) {
+      const text = await response.text();
+      if (!text) {
+        return null;
+      }
+      try {
+        return JSON.parse(text);
+      } catch {
+        return { detail: text };
+      }
+    }
+
+    async function showHealth() {
+      try {
+        const res = await fetch('/health');
+        const data = await readJsonBody(res);
+        if (!res.ok || !data) {
+          throw new Error(data?.detail || res.statusText || 'Réponse inattendue');
+        }
+        healthStatus.innerHTML = `
+          <p><span class="tag">État</span> <strong>${data.status}</strong></p>
+          <p><span class="tag">Taille index</span> ${data.index_size}</p>
+        `;
+        heroApiStatus.textContent = `API ${data.status}`;
+        heroIndexSize.textContent = String(data.index_size);
+        heroApiDot.classList.remove('offline');
+        heroApiDot.classList.add('online');
+      } catch (err) {
+        healthStatus.innerHTML = `<p class="error">Impossible de joindre l'API /health : ${err.message}</p>`;
+        heroApiStatus.textContent = 'API indisponible';
+        heroIndexSize.textContent = '--';
+        heroApiDot.classList.remove('online');
+        heroApiDot.classList.add('offline');
+      }
+    }
+
+    queryForm.addEventListener('submit', async (event) => {
+      event.preventDefault();
+      queryStatus.textContent = '';
+      queryResult.innerHTML = '<p>Chargement de la réponse…</p>';
+
+      const question = document.getElementById('question').value.trim();
+      const k = parseInt(document.getElementById('k').value, 10);
+      const useMmr = document.getElementById('use-mmr').checked;
+
+      if (!question) {
+        queryStatus.textContent = 'Veuillez saisir une question.';
+        return;
+      }
+
+      try {
+        const response = await fetch('/query', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ question, k, use_mmr: useMmr }),
+        });
+
+        const data = await readJsonBody(response);
+        if (!response.ok) {
+          throw new Error(data?.detail || response.statusText || 'Erreur inconnue');
+        }
+
+        queryResult.innerHTML = `
+          <p><strong>Question :</strong> ${data.question}</p>
+          <p><strong>Réponse :</strong></p>
+          <pre>${data.answer}</pre>
+          <div class="source">
+            <p><strong>Méta</strong> : ${data.metadata.num_docs} document(s), types = ${data.metadata.types.join(', ') || 'aucun'}, pages = ${data.metadata.pages.join(', ') || 'aucune'}</p>
+            <h3>Sources</h3>
+            ${data.source_docs.length ? data.source_docs.map((doc, index) => `
+              <div class="source-item">
+                <p><strong>Source #${index + 1}</strong></p>
+                <pre>${doc.content}</pre>
+                <p class="hint">${JSON.stringify(doc.metadata)}</p>
+              </div>
+            `).join('') : '<p>Aucune source renvoyée.</p>'}
+          </div>
+        `;
+      } catch (err) {
+        queryResult.innerHTML = `<p class="error">Erreur : ${err.message}</p>`;
+      }
+    });
+
+    ingestForm.addEventListener('submit', async (event) => {
+      event.preventDefault();
+      ingestStatus.textContent = '';
+      const fileInput = document.getElementById('pdf-file');
+      const file = fileInput.files[0];
+
+      if (!file) {
+        ingestStatus.textContent = 'Sélectionnez un fichier PDF.';
+        return;
+      }
+
+      if (!file.name.toLowerCase().endsWith('.pdf')) {
+        ingestStatus.textContent = 'Le fichier doit être un PDF.';
+        return;
+      }
+
+      const formData = new FormData();
+      formData.append('file', file);
+      ingestStatus.textContent = 'Chargement du document…';
+
+      try {
+        const response = await fetch('/ingest', {
+          method: 'POST',
+          body: formData,
+        });
+
+        const data = await readJsonBody(response);
+        if (!response.ok) {
+          throw new Error(data?.detail || response.statusText || 'Erreur inconnue');
+        }
+
+        ingestStatus.innerHTML = `Document <strong>${data.filename}</strong> indexé : ${data.elements_extracted} éléments extraits.`;
+        showHealth();
+      } catch (err) {
+        ingestStatus.innerHTML = `<span class="error">Erreur : ${err.message}</span>`;
+      }
+    });
+
+    // Charger health au démarrage mais ne pas bloquer
+    setTimeout(showHealth, 500);
+  </script>
+</body>
+</html>

@@ -1,19 +1,20 @@
 """Extraction multi-modale de rapports d'audit PDF."""
 import io
 import logging
+import os
 from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any, Optional
- 
+
 import fitz
 import numpy as np
 import pdfplumber
 import torch
 from PIL import Image
 from langchain_openai import ChatOpenAI
-from langchain.prompts import ChatPromptTemplate
+from langchain_core.prompts import ChatPromptTemplate
 from transformers import CLIPModel, CLIPProcessor
- 
+
 from audit_rag.config import Settings, get_settings
  
 logger = logging.getLogger(__name__)
@@ -62,6 +63,7 @@ class PDFExtractor:
                 model=self.cfg.llm_model,
                 temperature=0,
                 max_tokens=500,
+                api_key=self.cfg.openai_api_key,
             )
         return self._llm
  

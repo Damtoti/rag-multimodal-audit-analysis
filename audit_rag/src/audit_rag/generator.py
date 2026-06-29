@@ -1,13 +1,15 @@
 """Génération de réponses RAG pour l'analyse d'audit."""
 import logging
+import os
 from typing import Any, Optional
- 
-from langchain.prompts import ChatPromptTemplate
-from langchain.schema import Document
-from langchain_openai import ChatOpenAI
- 
-from audit_rag.config import Settings, get_settings
+
+from langchain_core.prompts import ChatPromptTemplate
+from langchain_core.documents import Document
+
+# Local imports
 from audit_rag.retriever import AuditRetriever
+from audit_rag.config import Settings, get_settings
+from langchain_openai import ChatOpenAI
  
 logger = logging.getLogger(__name__)
  
@@ -45,6 +47,7 @@ class AuditRAGGenerator:
             temperature=0.1,
             max_tokens=2000,
             api_key=self.cfg.openai_api_key,
+            openai_api_base=self.cfg.openai_api_base,
         )
 
         self.prompt = ChatPromptTemplate.from_template(SYSTEM_PROMPT)
@@ -78,7 +81,13 @@ class AuditRAGGenerator:
         return {
             "question":    question,
             "answer":      answer_text,
-            "source_docs": docs,
+            "source_docs": [
+                {
+                    "content":  d.page_content,
+                    "metadata": d.metadata,
+                }
+                for d in docs
+            ],
             "metadata": {
                 "num_docs":  len(docs),
                 "types":     [d.metadata.get("type") for d in docs],

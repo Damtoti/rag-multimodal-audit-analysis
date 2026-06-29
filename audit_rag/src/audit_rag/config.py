@@ -3,10 +3,12 @@ from pathlib import Path
 from functools import lru_cache
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
+# Chemin vers .env à la racine du projet audit_rag
+_ENV_FILE = Path(__file__).parent.parent.parent / ".env"
 
 class Settings(BaseSettings):
     model_config = SettingsConfigDict(
-        env_file=".env", env_file_encoding="utf-8", case_sensitive=False
+        env_file=str(_ENV_FILE), env_file_encoding="utf-8", case_sensitive=False
     )
 
     # API Keys
@@ -15,12 +17,15 @@ class Settings(BaseSettings):
     pinecone_api_key: str = ""
     pinecone_environment: str = ""
 
+    # OpenAI API endpoint
+    openai_api_base: str = "https://api.openai.com/v1"
+
     # Paths
     data_dir: Path = Path("./data/reports")
     persist_dir: Path = Path("./data/chroma_db")
 
     # Models
-    llm_model: str = "gpt-4o"
+    llm_model: str = "gpt-3.5-turbo"
     embed_model: str = "text-embedding-3-large"
     clip_model: str = "openai/clip-vit-large-patch14"
 
