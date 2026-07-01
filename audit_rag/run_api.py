@@ -18,8 +18,8 @@ import uvicorn
 if __name__ == "__main__":
     uvicorn.run(
         "audit_rag.api:app",
-        host="127.0.0.1",
-        port=8000,
-        reload=True,
+        host=os.getenv("API_HOST", "0.0.0.0"),
+        port=int(os.getenv("PORT", os.getenv("API_PORT", "8000"))),
+        reload=os.getenv("UVICORN_RELOAD", "false").lower() == "true",
         log_level="info",
     )
