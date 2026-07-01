@@ -1,6 +1,6 @@
 """Gestion du vector store ChromaDB pour les rapports d'audit."""
 import logging
-from typing import Optional
+from typing import TYPE_CHECKING, Optional
  
 from langchain_core.documents import Document
 from langchain_text_splitters import RecursiveCharacterTextSplitter
@@ -8,12 +8,21 @@ from langchain_chroma import Chroma
 from sentence_transformers import SentenceTransformer
 
 from audit_rag.config import Settings, get_settings
-from audit_rag.extractor import ExtractedElement
+
+if TYPE_CHECKING:
+    from audit_rag.extractor import ExtractedElement
 
 
 class SentenceTransformerEmbeddings:
     def __init__(self, model_name: str = "all-MiniLM-L6-v2"):
-        self.model = SentenceTransformer(model_name)
+        self.model_name = model_name
+        self._model: Optional[SentenceTransformer] = None
+
+    @property
+    def model(self) -> SentenceTransformer:
+        if self._model is None:
+            self._model = SentenceTransformer(self.model_name)
+        return self._model
 
     def embed_documents(self, texts: list[str]) -> list[list[float]]:
         embeddings = self.model.encode(
@@ -48,7 +57,7 @@ class AuditVectorStore:
         self._store: Optional[Chroma] = None
  
     # ── Build / Load ─────────────────────────────────────────
-    def build(self, elements: list[ExtractedElement]) -> None:
+    def build(self, elements: list["ExtractedElement"]) -> None:
         docs = self._prepare_documents(elements)
         logger.info("Indexation de %d documents...", len(docs))
         self._store = Chroma.from_documents(
@@ -86,7 +95,7 @@ class AuditVectorStore:
         )
  
     # ── Helpers ─────────────────────────────────────────────
-    def _prepare_documents(self, elements: list[ExtractedElement]) -> list[Document]:
+    def _prepare_documents(self, elements: list["ExtractedElement"]) -> list[Document]:
         docs: list[Document] = []
         for elem in elements:
             base_meta = {

@@ -12,7 +12,6 @@ from pydantic import BaseModel
 from openai import OpenAIError
  
 from audit_rag.config import get_settings
-from audit_rag.extractor import PDFExtractor
 from audit_rag.generator import AuditRAGGenerator
 from audit_rag.retriever import AuditRetriever
 from audit_rag.vectorstore import AuditVectorStore
@@ -29,12 +28,8 @@ _generator: Optional[AuditRAGGenerator] = None
 @asynccontextmanager
 async def lifespan(app: FastAPI):  # type: ignore
     global _store, _retriever, _generator
-    logger.info("Démarrage — chargement du vector store...")
+    logger.info("Démarrage — initialisation des composants...")
     _store = AuditVectorStore()
-    try:
-        _store.load()
-    except Exception:
-        logger.warning("Aucun index trouvé — à créer via POST /ingest")
     _retriever = AuditRetriever(_store)
     _generator = AuditRAGGenerator(_retriever)
     yield
@@ -110,14 +105,22 @@ class HealthResponse(BaseModel):
 @app.get("/health", response_model=HealthResponse)
 async def health() -> HealthResponse:
     count = 0
-    if _store and _store._store:
-        count = _store._store._collection.count()
+    if _store:
+        if _store._store is None:
+            try:
+                _store.load()
+            except Exception:
+                logger.info("Aucun index chargé pour /health")
+        if _store._store:
+            count = _store._store._collection.count()
     return HealthResponse(status="ok", index_size=count)
  
  
 @app.post("/ingest", response_model=IngestResponse, status_code=status.HTTP_201_CREATED)
 async def ingest(file: UploadFile = File(...)) -> IngestResponse:
     """Ingère un rapport PDF et l\'ajoute à l\'index."""
+    from audit_rag.extractor import PDFExtractor
+
     if not file.filename or not file.filename.endswith(".pdf"):
         raise HTTPException(status_code=400, detail="Seuls les fichiers PDF sont acceptés")
  
@@ -142,6 +145,12 @@ async def ingest(file: UploadFile = File(...)) -> IngestResponse:
 @app.post("/query", response_model=QueryResponse)
 async def query(req: QueryRequest) -> QueryResponse:
     """Interroge le système RAG sur les rapports indexés."""
+    if _store is not None and _store._store is None:
+        try:
+            _store.load()
+        except Exception:
+            logger.info("Aucun index disponible pour /query")
+
     if _generator is None or _store is None or _store._store is None:
         raise HTTPException(status_code=503, detail="Aucun document indexé")
  
