@@ -9,11 +9,8 @@ from typing import Any, Optional
 import fitz
 import numpy as np
 import pdfplumber
-import torch
-from PIL import Image
 from langchain_openai import ChatOpenAI
 from langchain_core.prompts import ChatPromptTemplate
-from transformers import CLIPModel, CLIPProcessor
 
 from audit_rag.config import Settings, get_settings
  
@@ -35,15 +32,19 @@ class PDFExtractor:
  
     def __init__(self, settings: Optional[Settings] = None):
         self.cfg    = settings or get_settings()
-        self.device = "cuda" if torch.cuda.is_available() else "cpu"
-        self._clip_model: Optional[CLIPModel]     = None
-        self._clip_proc:  Optional[CLIPProcessor] = None
+        self.device = "cpu"
+        self._clip_model: Optional[Any]     = None
+        self._clip_proc:  Optional[Any] = None
         self._llm: Optional[ChatOpenAI]           = None
  
     # ── Lazy loading des modèles lourds ─────────────────────
     @property
-    def clip_model(self) -> CLIPModel:
+    def clip_model(self):
         if self._clip_model is None:
+            import torch
+            from transformers import CLIPModel
+
+            self.device = "cuda" if torch.cuda.is_available() else "cpu"
             logger.info("Chargement CLIP %s sur %s", self.cfg.clip_model, self.device)
             self._clip_model = CLIPModel.from_pretrained(
                 self.cfg.clip_model
@@ -51,8 +52,10 @@ class PDFExtractor:
         return self._clip_model
  
     @property
-    def clip_processor(self) -> CLIPProcessor:
+    def clip_processor(self):
         if self._clip_proc is None:
+            from transformers import CLIPProcessor
+
             self._clip_proc = CLIPProcessor.from_pretrained(self.cfg.clip_model)
         return self._clip_proc
  
@@ -123,6 +126,8 @@ class PDFExtractor:
  
     # ── Extraction images ───────────────────────────────────
     def extract_images(self, pdf_path: Path) -> list[ExtractedElement]:
+        from PIL import Image
+
         elements: list[ExtractedElement] = []
         doc = fitz.open(str(pdf_path))
         for page_num, page in enumerate(doc, start=1):
@@ -163,18 +168,18 @@ class PDFExtractor:
     # ── Pipeline principal ──────────────────────────────────
     def process(self, pdf_path: Path) -> list[ExtractedElement]:
         logger.info("Traitement : %s", pdf_path.name)
-        elements = (
-            self.extract_text(pdf_path)
-            + self.extract_tables(pdf_path)
-            + self.extract_images(pdf_path)
-        )
+        elements = self.extract_text(pdf_path) + self.extract_tables(pdf_path)
+        if self.cfg.enable_image_extraction:
+            elements += self.extract_images(pdf_path)
         counts = {t: sum(1 for e in elements if e.element_type == t)
                   for t in ("text", "table", "image")}
         logger.info("Extrait depuis %s : %s", pdf_path.name, counts)
         return elements
  
     # ── Helpers ─────────────────────────────────────────────
-    def _get_clip_embedding(self, pil_img: Image.Image) -> np.ndarray:
+    def _get_clip_embedding(self, pil_img) -> np.ndarray:
+        import torch
+
         inputs = self.clip_processor(
             images=pil_img, return_tensors="pt"
         ).to(self.device)
@@ -182,7 +187,7 @@ class PDFExtractor:
             embedding = self.clip_model.get_image_features(**inputs)
         return embedding.cpu().numpy().flatten()
  
-    def _describe_image(self, pil_img: Image.Image) -> str:
+    def _describe_image(self, pil_img) -> str:
         try:
             import base64
             buf    = io.BytesIO()

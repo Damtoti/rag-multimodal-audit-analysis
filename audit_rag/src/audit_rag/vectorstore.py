@@ -5,7 +5,6 @@ from typing import TYPE_CHECKING, Optional
 from langchain_core.documents import Document
 from langchain_text_splitters import RecursiveCharacterTextSplitter
 from langchain_chroma import Chroma
-from sentence_transformers import SentenceTransformer
 
 from audit_rag.config import Settings, get_settings
 
@@ -16,11 +15,13 @@ if TYPE_CHECKING:
 class SentenceTransformerEmbeddings:
     def __init__(self, model_name: str = "all-MiniLM-L6-v2"):
         self.model_name = model_name
-        self._model: Optional[SentenceTransformer] = None
+        self._model: Optional[object] = None
 
     @property
-    def model(self) -> SentenceTransformer:
+    def model(self):
         if self._model is None:
+            from sentence_transformers import SentenceTransformer
+
             self._model = SentenceTransformer(self.model_name)
         return self._model
 

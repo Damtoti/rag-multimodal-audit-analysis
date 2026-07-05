@@ -28,6 +28,7 @@ class Settings(BaseSettings):
     llm_model: str = "gpt-3.5-turbo"
     embed_model: str = "text-embedding-3-large"
     clip_model: str = "openai/clip-vit-large-patch14"
+    enable_image_extraction: bool = False
 
     # Chunking
     chunk_size: int = 1000

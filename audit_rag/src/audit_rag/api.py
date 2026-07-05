@@ -128,13 +128,27 @@ async def ingest(file: UploadFile = File(...)) -> IngestResponse:
     content = await file.read()
     dest.write_bytes(content)
  
-    extractor = PDFExtractor()
-    elements  = extractor.process(dest)
+    try:
+        extractor = PDFExtractor()
+        elements  = extractor.process(dest)
+    except Exception as exc:
+        logger.exception("Erreur ingestion/extraction pour %s", file.filename)
+        raise HTTPException(
+            status_code=500,
+            detail=f"Echec extraction PDF: {type(exc).__name__}: {exc}",
+        )
  
     if _store is None:
         raise HTTPException(status_code=503, detail="Vector store non disponible")
  
-    _store.build(elements)
+    try:
+        _store.build(elements)
+    except Exception as exc:
+        logger.exception("Erreur indexation vector store pour %s", file.filename)
+        raise HTTPException(
+            status_code=500,
+            detail=f"Echec indexation vectorielle: {type(exc).__name__}: {exc}",
+        )
     return IngestResponse(
         filename=file.filename,
         elements_extracted=len(elements),
