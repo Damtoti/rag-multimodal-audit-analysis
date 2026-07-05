@@ -60,6 +60,8 @@ class AuditVectorStore:
     # ── Build / Load ─────────────────────────────────────────
     def build(self, elements: list["ExtractedElement"]) -> None:
         docs = self._prepare_documents(elements)
+        if not docs:
+            raise ValueError("Aucun document indexable n'a ete genere")
         logger.info("Indexation de %d documents...", len(docs))
         self._store = Chroma.from_documents(
             documents=docs,

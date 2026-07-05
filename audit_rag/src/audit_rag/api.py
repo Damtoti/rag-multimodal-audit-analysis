@@ -137,6 +137,16 @@ async def ingest(file: UploadFile = File(...)) -> IngestResponse:
             status_code=500,
             detail=f"Echec extraction PDF: {type(exc).__name__}: {exc}",
         )
+
+    if not elements:
+        raise HTTPException(
+            status_code=422,
+            detail=(
+                "Aucun contenu extractible trouve dans ce PDF. "
+                "Ce fichier semble image/scanne ou vide. "
+                "Activez ENABLE_IMAGE_EXTRACTION=true pour traiter les PDF scannes."
+            ),
+        )
  
     if _store is None:
         raise HTTPException(status_code=503, detail="Vector store non disponible")
