@@ -465,24 +465,39 @@
     const heroApiStatus = document.getElementById('hero-api-status');
     const heroIndexSize = document.getElementById('hero-index-size');
 
-    async function readJsonBody(response) {
+    async function readResponseBody(response) {
       const text = await response.text();
       if (!text) {
-        return null;
+        return { json: null, text: '' };
       }
       try {
-        return JSON.parse(text);
+        return { json: JSON.parse(text), text };
       } catch {
-        return { detail: text };
+        return { json: null, text };
       }
+    }
+
+    function buildHttpErrorMessage(response, payload) {
+      const detail = payload?.json?.detail;
+      const rawText = payload?.text?.trim();
+      const status = response?.status || 0;
+      const statusText = response?.statusText || 'Erreur HTTP';
+      if (detail && typeof detail === 'string') {
+        return `[HTTP ${status}] ${detail}`;
+      }
+      if (rawText) {
+        return `[HTTP ${status}] ${rawText.slice(0, 500)}`;
+      }
+      return `[HTTP ${status}] ${statusText}`;
     }
 
     async function showHealth() {
       try {
         const res = await fetch('/health');
-        const data = await readJsonBody(res);
+        const payload = await readResponseBody(res);
+        const data = payload.json;
         if (!res.ok || !data) {
-          throw new Error(data?.detail || res.statusText || 'Réponse inattendue');
+          throw new Error(buildHttpErrorMessage(res, payload));
         }
         healthStatus.innerHTML = `
           <p><span class="tag">État</span> <strong>${data.status}</strong></p>
@@ -522,9 +537,10 @@
           body: JSON.stringify({ question, k, use_mmr: useMmr }),
         });
 
-        const data = await readJsonBody(response);
+        const payload = await readResponseBody(response);
+        const data = payload.json;
         if (!response.ok) {
-          throw new Error(data?.detail || response.statusText || 'Erreur inconnue');
+          throw new Error(buildHttpErrorMessage(response, payload));
         }
 
         queryResult.innerHTML = `
@@ -574,9 +590,10 @@
           body: formData,
         });
 
-        const data = await readJsonBody(response);
+        const payload = await readResponseBody(response);
+        const data = payload.json;
         if (!response.ok) {
-          throw new Error(data?.detail || response.statusText || 'Erreur inconnue');
+          throw new Error(buildHttpErrorMessage(response, payload));
         }
 
         ingestStatus.innerHTML = `Document <strong>${data.filename}</strong> indexé : ${data.elements_extracted} éléments extraits.`;
