@@ -564,6 +564,32 @@
       }
     });
 
+    async function pollIngestJob(jobId, filename) {
+      const maxAttempts = 60;  // 60 × 3s = 3 minutes
+      let dots = 0;
+      for (let i = 0; i < maxAttempts; i++) {
+        await new Promise(r => setTimeout(r, 3000));
+        dots = (dots % 3) + 1;
+        ingestStatus.textContent = `Traitement en cours${'.'.repeat(dots)}`;
+        try {
+          const res = await fetch(`/ingest/${jobId}`);
+          const payload = await readResponseBody(res);
+          const job = payload.json;
+          if (!res.ok || !job) continue;
+          if (job.status === 'done') {
+            ingestStatus.innerHTML = `✅ <strong>${filename}</strong> indexé — ${job.elements_extracted} éléments extraits.`;
+            showHealth();
+            return;
+          }
+          if (job.status === 'error') {
+            ingestStatus.innerHTML = `<span class="error">Erreur : ${job.detail}</span>`;
+            return;
+          }
+        } catch (_) { /* continue polling */ }
+      }
+      ingestStatus.innerHTML = `<span class="error">Timeout : traitement trop long (> 3 min).</span>`;
+    }
+
     ingestForm.addEventListener('submit', async (event) => {
       event.preventDefault();
       ingestStatus.textContent = '';
@@ -582,7 +608,7 @@
 
       const formData = new FormData();
       formData.append('file', file);
-      ingestStatus.textContent = 'Chargement du document…';
+      ingestStatus.textContent = 'Envoi du document…';
 
       try {
         const response = await fetch('/ingest', {
@@ -596,8 +622,8 @@
           throw new Error(buildHttpErrorMessage(response, payload));
         }
 
-        ingestStatus.innerHTML = `Document <strong>${data.filename}</strong> indexé : ${data.elements_extracted} éléments extraits.`;
-        showHealth();
+        ingestStatus.textContent = `Document reçu (job ${data.job_id}). Extraction en cours…`;
+        pollIngestJob(data.job_id, data.filename);
       } catch (err) {
         ingestStatus.innerHTML = `<span class="error">Erreur : ${err.message}</span>`;
       }

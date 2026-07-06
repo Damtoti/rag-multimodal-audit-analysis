@@ -1,10 +1,13 @@
 """API FastAPI REST pour le système RAG d\'audit."""
 import logging
+import uuid
+import asyncio
+from concurrent.futures import ThreadPoolExecutor
 from contextlib import asynccontextmanager
 from pathlib import Path
 from typing import Any, Optional
  
-from fastapi import FastAPI, File, HTTPException, Request, UploadFile, status
+from fastapi import BackgroundTasks, FastAPI, File, HTTPException, Request, UploadFile, status
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import FileResponse, HTMLResponse, JSONResponse
 from fastapi.staticfiles import StaticFiles
@@ -18,7 +21,13 @@ from audit_rag.vectorstore import AuditVectorStore
  
 logger = logging.getLogger(__name__)
 cfg    = get_settings()
- 
+
+# Thread pool for CPU-bound ingest tasks
+_executor = ThreadPoolExecutor(max_workers=1)
+
+# ── Job tracking ─────────────────────────────────────────
+_jobs: dict[str, dict[str, Any]] = {}
+
 # ── État global de l\'application ─────────────────────────
 _store:     Optional[AuditVectorStore] = None
 _retriever: Optional[AuditRetriever]   = None
@@ -94,13 +103,61 @@ class IngestResponse(BaseModel):
     filename: str
     elements_extracted: int
     status: str
- 
- 
+
+
+class IngestJobResponse(BaseModel):
+    job_id: str
+    filename: str
+    status: str
+
+
+class IngestJobStatus(BaseModel):
+    job_id: str
+    filename: str
+    status: str          # "pending" | "done" | "error"
+    elements_extracted: int
+    detail: str
+
+
 class HealthResponse(BaseModel):
     status: str
     index_size: int
- 
- 
+
+
+# ── Ingest background worker ─────────────────────────────
+def _run_ingest_sync(job_id: str, dest: Path, filename: str) -> None:
+    """CPU-bound extraction + indexing executed in thread pool."""
+    from audit_rag.extractor import PDFExtractor
+
+    _jobs[job_id] = {"filename": filename, "status": "pending", "elements_extracted": 0, "detail": ""}
+    try:
+        extractor = PDFExtractor()
+        elements  = extractor.process(dest)
+
+        if not elements:
+            _jobs[job_id].update(
+                status="error",
+                detail=(
+                    "Aucun contenu extractible dans ce PDF. "
+                    "Fichier scanné/image ou vide. "
+                    "Activez ENABLE_IMAGE_EXTRACTION=true pour les PDF scannés."
+                ),
+            )
+            return
+
+        if _store is None:
+            _jobs[job_id].update(status="error", detail="Vector store non disponible")
+            return
+
+        _store.build(elements)
+        _jobs[job_id].update(status="done", elements_extracted=len(elements), detail="")
+        logger.info("Ingest job %s done: %d elements", job_id, len(elements))
+
+    except Exception as exc:
+        logger.exception("Ingest job %s failed", job_id)
+        _jobs[job_id].update(status="error", detail=f"{type(exc).__name__}: {exc}")
+
+
 # ── Endpoints ────────────────────────────────────────────
 @app.get("/health", response_model=HealthResponse)
 async def health() -> HealthResponse:
@@ -114,56 +171,32 @@ async def health() -> HealthResponse:
         if _store._store:
             count = _store._store._collection.count()
     return HealthResponse(status="ok", index_size=count)
- 
- 
-@app.post("/ingest", response_model=IngestResponse, status_code=status.HTTP_201_CREATED)
-async def ingest(file: UploadFile = File(...)) -> IngestResponse:
-    """Ingère un rapport PDF et l\'ajoute à l\'index."""
-    from audit_rag.extractor import PDFExtractor
 
-    if not file.filename or not file.filename.endswith(".pdf"):
+
+@app.post("/ingest", response_model=IngestJobResponse, status_code=status.HTTP_202_ACCEPTED)
+async def ingest(file: UploadFile = File(...)) -> IngestJobResponse:
+    """Lance l\'ingestion d\'un PDF en tâche de fond — répond immédiatement."""
+    if not file.filename or not file.filename.lower().endswith(".pdf"):
         raise HTTPException(status_code=400, detail="Seuls les fichiers PDF sont acceptés")
- 
+
     dest = cfg.data_dir / file.filename
     content = await file.read()
     dest.write_bytes(content)
- 
-    try:
-        extractor = PDFExtractor()
-        elements  = extractor.process(dest)
-    except Exception as exc:
-        logger.exception("Erreur ingestion/extraction pour %s", file.filename)
-        raise HTTPException(
-            status_code=500,
-            detail=f"Echec extraction PDF: {type(exc).__name__}: {exc}",
-        )
 
-    if not elements:
-        raise HTTPException(
-            status_code=422,
-            detail=(
-                "Aucun contenu extractible trouve dans ce PDF. "
-                "Ce fichier semble image/scanne ou vide. "
-                "Activez ENABLE_IMAGE_EXTRACTION=true pour traiter les PDF scannes."
-            ),
-        )
- 
-    if _store is None:
-        raise HTTPException(status_code=503, detail="Vector store non disponible")
- 
-    try:
-        _store.build(elements)
-    except Exception as exc:
-        logger.exception("Erreur indexation vector store pour %s", file.filename)
-        raise HTTPException(
-            status_code=500,
-            detail=f"Echec indexation vectorielle: {type(exc).__name__}: {exc}",
-        )
-    return IngestResponse(
-        filename=file.filename,
-        elements_extracted=len(elements),
-        status="indexed",
-    )
+    job_id = str(uuid.uuid4())[:8]
+    loop = asyncio.get_event_loop()
+    loop.run_in_executor(_executor, _run_ingest_sync, job_id, dest, file.filename)
+
+    return IngestJobResponse(job_id=job_id, filename=file.filename, status="pending")
+
+
+@app.get("/ingest/{job_id}", response_model=IngestJobStatus)
+async def ingest_status(job_id: str) -> IngestJobStatus:
+    """Retourne l\'état d\'un job d\'ingestion."""
+    job = _jobs.get(job_id)
+    if job is None:
+        raise HTTPException(status_code=404, detail=f"Job {job_id} inconnu")
+    return IngestJobStatus(job_id=job_id, **job)
  
  
 @app.post("/query", response_model=QueryResponse)
