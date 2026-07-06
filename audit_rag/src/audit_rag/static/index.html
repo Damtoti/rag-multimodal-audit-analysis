@@ -606,9 +606,9 @@
         return;
       }
 
-      const MAX_UPLOAD_MB = 25;
+      const MAX_UPLOAD_MB = 10;
       if (file.size > MAX_UPLOAD_MB * 1024 * 1024) {
-        ingestStatus.innerHTML = `<span class="error">Fichier trop volumineux (> ${MAX_UPLOAD_MB} MB).</span>`;
+        ingestStatus.innerHTML = `<span class="error">Fichier trop volumineux (> ${MAX_UPLOAD_MB} MB). Réduisez/comprimez le PDF ou découpez-le en plusieurs parties.</span>`;
         return;
       }
 
