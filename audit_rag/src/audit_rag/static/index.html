@@ -606,6 +606,12 @@
         return;
       }
 
+      const MAX_UPLOAD_MB = 25;
+      if (file.size > MAX_UPLOAD_MB * 1024 * 1024) {
+        ingestStatus.innerHTML = `<span class="error">Fichier trop volumineux (> ${MAX_UPLOAD_MB} MB).</span>`;
+        return;
+      }
+
       const formData = new FormData();
       formData.append('file', file);
       ingestStatus.textContent = 'Envoi du document…';

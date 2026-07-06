@@ -179,15 +179,41 @@ async def ingest(file: UploadFile = File(...)) -> IngestJobResponse:
     if not file.filename or not file.filename.lower().endswith(".pdf"):
         raise HTTPException(status_code=400, detail="Seuls les fichiers PDF sont acceptés")
 
-    dest = cfg.data_dir / file.filename
-    content = await file.read()
-    dest.write_bytes(content)
+    filename = Path(file.filename).name
+    dest = cfg.data_dir / filename
+    max_bytes = cfg.max_upload_mb * 1024 * 1024
+    total_written = 0
+
+    # Stream to disk to avoid loading large PDFs into memory.
+    try:
+        with open(dest, "wb") as out:
+            while True:
+                chunk = await file.read(1024 * 1024)
+                if not chunk:
+                    break
+                total_written += len(chunk)
+                if total_written > max_bytes:
+                    out.close()
+                    try:
+                        dest.unlink(missing_ok=True)
+                    except Exception:
+                        logger.warning("Impossible de supprimer le fichier trop volumineux: %s", dest)
+                    raise HTTPException(
+                        status_code=413,
+                        detail=f"Fichier trop volumineux (> {cfg.max_upload_mb} MB)",
+                    )
+                out.write(chunk)
+    finally:
+        await file.close()
+
+    if total_written == 0:
+        raise HTTPException(status_code=400, detail="Le fichier uploadé est vide")
 
     job_id = str(uuid.uuid4())[:8]
     loop = asyncio.get_event_loop()
-    loop.run_in_executor(_executor, _run_ingest_sync, job_id, dest, file.filename)
+    loop.run_in_executor(_executor, _run_ingest_sync, job_id, dest, filename)
 
-    return IngestJobResponse(job_id=job_id, filename=file.filename, status="pending")
+    return IngestJobResponse(job_id=job_id, filename=filename, status="pending")
 
 
 @app.get("/ingest/{job_id}", response_model=IngestJobStatus)

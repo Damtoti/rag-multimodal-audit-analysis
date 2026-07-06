@@ -40,6 +40,7 @@ class Settings(BaseSettings):
     api_host: str = "0.0.0.0"
     api_port: int = 8000
     log_level: str = "INFO"
+    max_upload_mb: int = 25
 
     def model_post_init(self, __context: object) -> None:
         self.data_dir.mkdir(parents=True, exist_ok=True)
