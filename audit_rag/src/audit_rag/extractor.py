@@ -6,7 +6,6 @@ from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any, Optional
 
-import fitz
 import numpy as np
 import pdfplumber
 from langchain_openai import ChatOpenAI
@@ -126,6 +125,7 @@ class PDFExtractor:
  
     # ── Extraction images ───────────────────────────────────
     def extract_images(self, pdf_path: Path) -> list[ExtractedElement]:
+        import fitz
         from PIL import Image
 
         elements: list[ExtractedElement] = []

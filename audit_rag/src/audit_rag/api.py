@@ -1,8 +1,6 @@
 """API FastAPI REST pour le système RAG d\'audit."""
 import logging
 import uuid
-import asyncio
-from concurrent.futures import ThreadPoolExecutor
 from contextlib import asynccontextmanager
 from pathlib import Path
 from typing import Any, Optional
@@ -21,9 +19,6 @@ from audit_rag.vectorstore import AuditVectorStore
  
 logger = logging.getLogger(__name__)
 cfg    = get_settings()
-
-# Thread pool for CPU-bound ingest tasks
-_executor = ThreadPoolExecutor(max_workers=1)
 
 # ── Job tracking ─────────────────────────────────────────
 _jobs: dict[str, dict[str, Any]] = {}
@@ -174,7 +169,7 @@ async def health() -> HealthResponse:
 
 
 @app.post("/ingest", response_model=IngestJobResponse, status_code=status.HTTP_202_ACCEPTED)
-async def ingest(file: UploadFile = File(...)) -> IngestJobResponse:
+async def ingest(background_tasks: BackgroundTasks, file: UploadFile = File(...)) -> IngestJobResponse:
     """Lance l\'ingestion d\'un PDF en tâche de fond — répond immédiatement."""
     if not file.filename or not file.filename.lower().endswith(".pdf"):
         raise HTTPException(status_code=400, detail="Seuls les fichiers PDF sont acceptés")
@@ -210,8 +205,8 @@ async def ingest(file: UploadFile = File(...)) -> IngestJobResponse:
         raise HTTPException(status_code=400, detail="Le fichier uploadé est vide")
 
     job_id = str(uuid.uuid4())[:8]
-    loop = asyncio.get_event_loop()
-    loop.run_in_executor(_executor, _run_ingest_sync, job_id, dest, filename)
+    # Run after returning HTTP 202 to avoid gateway timeout/502 on long ingest startup.
+    background_tasks.add_task(_run_ingest_sync, job_id, dest, filename)
 
     return IngestJobResponse(job_id=job_id, filename=filename, status="pending")
 
