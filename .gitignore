@@ -9,6 +9,8 @@ dist/
 build/
 .venv/
 venv/
+env/
+data/
 .env
 audit_rag/.env
 .env.local

@@ -1,14 +1,13 @@
 services:
   - type: web
     name: audit-rag-api
-    env: python
+    env: docker
     rootDir: audit_rag
-    buildCommand: pip install -r requirements.txt
-    startCommand: python -m uvicorn --app-dir src audit_rag.api:app --host 0.0.0.0 --port $PORT
+    dockerfilePath: ./Dockerfile
     envVars:
-      - key: PYTHON_VERSION
-        value: 3.11.9
       - key: OPENAI_API_BASE
         value: https://api.openai.com/v1
       - key: OPENAI_API_KEY
         sync: false
+      - key: ENABLE_IMAGE_EXTRACTION
+        value: "true"

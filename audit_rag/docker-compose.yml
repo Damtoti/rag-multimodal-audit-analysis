@@ -2,6 +2,7 @@ version: '3.8'
 services:
   api:
     build: .
+    command: python -m uvicorn --app-dir src audit_rag.api:app --host 0.0.0.0 --port 8000
     ports:
       - "8000:8000"
     volumes:
@@ -11,4 +12,4 @@ services:
       test: ["CMD", "curl", "-f", "http://localhost:8000/health"]
       interval: 30s
       timeout: 10s
-      retries: 
+      retries: 3
