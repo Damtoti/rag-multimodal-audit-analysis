@@ -2,6 +2,7 @@ services:
   - type: web
     name: audit-rag-api
     env: docker
+    plan: free
     rootDir: audit_rag
     dockerfilePath: ./Dockerfile
     envVars:
