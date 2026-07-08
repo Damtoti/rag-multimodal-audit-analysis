@@ -565,12 +565,13 @@
     });
 
     async function pollIngestJob(jobId, filename) {
-      const maxAttempts = 60;  // 60 × 3s = 3 minutes
+      const pollIntervalMs = 5000;
+      const maxAttempts = 360;  // 360 × 5s = 30 minutes
       let dots = 0;
       for (let i = 0; i < maxAttempts; i++) {
-        await new Promise(r => setTimeout(r, 3000));
+        await new Promise(r => setTimeout(r, pollIntervalMs));
         dots = (dots % 3) + 1;
-        ingestStatus.textContent = `Traitement en cours${'.'.repeat(dots)}`;
+        ingestStatus.textContent = `Traitement en cours${'.'.repeat(dots)} (job ${jobId})`;
         try {
           const res = await fetch(`/ingest/${jobId}`);
           const payload = await readResponseBody(res);
@@ -587,7 +588,7 @@
           }
         } catch (_) { /* continue polling */ }
       }
-      ingestStatus.innerHTML = `<span class="error">Timeout : traitement trop long (> 3 min).</span>`;
+      ingestStatus.innerHTML = `<span class="error">Traitement toujours en cours après 30 min (job ${jobId}). Vérifiez les logs Render et réessayez dans quelques minutes.</span>`;
     }
 
     ingestForm.addEventListener('submit', async (event) => {
