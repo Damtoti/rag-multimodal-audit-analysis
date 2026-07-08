@@ -238,7 +238,10 @@ async def query(req: QueryRequest) -> QueryResponse:
         logger.error("OpenAI error during query: %s", exc)
         raise HTTPException(
             status_code=502,
-            detail="Erreur de requête OpenAI : vérifiez votre clé API et votre configuration.",
+            detail=(
+                "Erreur OpenAI: "
+                f"{type(exc).__name__}: {str(exc)[:260]}"
+            ),
         )
     except Exception:
         logger.exception("Erreur interne lors du traitement de la requête")

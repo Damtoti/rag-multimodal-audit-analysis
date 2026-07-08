@@ -130,8 +130,18 @@ class PDFExtractor:
 
         elements: list[ExtractedElement] = []
         doc = fitz.open(str(pdf_path))
+        images_seen = 0
         for page_num, page in enumerate(doc, start=1):
             for img_index, img_info in enumerate(page.get_images(full=True)):
+                if images_seen >= self.cfg.max_images_per_pdf:
+                    logger.info(
+                        "Limite d'images atteinte (%d) pour %s",
+                        self.cfg.max_images_per_pdf,
+                        pdf_path.name,
+                    )
+                    doc.close()
+                    return elements
+
                 xref = img_info[0]
                 try:
                     base_image = doc.extract_image(xref)
@@ -139,9 +149,27 @@ class PDFExtractor:
                     pil_img    = Image.open(io.BytesIO(img_bytes)).convert("RGB")
                     if pil_img.width < 100 or pil_img.height < 100:
                         continue
- 
-                    clip_emb    = self._get_clip_embedding(pil_img)
-                    description = self._describe_image(pil_img)
+
+                    clip_emb = None
+                    if self.cfg.enable_clip_embeddings:
+                        clip_emb = self._get_clip_embedding(pil_img)
+
+                    if self.cfg.enable_image_descriptions:
+                        description = self._describe_image(pil_img)
+                    else:
+                        description = (
+                            "Image extraite d'un rapport d'audit. "
+                            "Activez ENABLE_IMAGE_DESCRIPTIONS=true pour générer une description détaillée."
+                        )
+
+                    metadata: dict[str, Any] = {
+                        "format": base_image["ext"],
+                        "width": pil_img.width,
+                        "height": pil_img.height,
+                        "image_index": img_index,
+                    }
+                    if clip_emb is not None:
+                        metadata["clip_embedding"] = clip_emb.tolist()
  
                     elements.append(ExtractedElement(
                         element_type="image",
@@ -149,14 +177,9 @@ class PDFExtractor:
                         page_number=page_num,
                         source_file=pdf_path.name,
                         image_data=img_bytes,
-                        metadata={
-                            "format":         base_image["ext"],
-                            "width":          pil_img.width,
-                            "height":         pil_img.height,
-                            "clip_embedding": clip_emb.tolist(),
-                            "image_index":    img_index,
-                        },
+                        metadata=metadata,
                     ))
+                    images_seen += 1
                 except Exception as exc:
                     logger.warning(
                         "Image %d p.%d de %s : %s",
